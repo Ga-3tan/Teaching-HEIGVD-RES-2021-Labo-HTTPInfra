@@ -30,13 +30,13 @@ COPY content/ /var/www/html/
 L'image peut donc être créée grâce à la commande (dans le dossier du dockerfile) :
 
 ```sh
-docker build -t apache/php .
+docker build -t apache_static .
 ```
 
 Puis un container peut être lancé avec la commande :
 
 ```sh
-docker run -d -p 9090:80 --name apache-php-container apache/php
+docker run -d -p 9090:80 --name apache_static res/apache_static
 ```
 
 #### Copie ou lien avec un dossier du host
@@ -66,8 +66,8 @@ Cela permet de modifier en direct les fichiers dans le dossier local et ceux-ci 
 Un dockerfile avec une image Node.js et une copie de dossier `./src` a été crée. L'image peut être créée et lancée avec les commandes :
 
 ```sh
-docker build -t res/express_students .
-docker run -d -p 9090:3000 res/express_students
+docker build -t res/express_dynamic .
+docker run -d -p 9090:3000 res/express_dynamic
 ```
 
 La version de Node.js utilisée est `14.17` et un `package.json` a été crée avec `npm init` dans le dossier src qui sera copié dans le dossier `/opt/app` du container à sa création. Le port mapping est nécessaire pour accéder à l'application express.js depuis la machine hôte.
@@ -97,8 +97,110 @@ Les routes retournent une liste d'animaux selon le type d'animal voulu. A l'adre
 #### Routes possibles
 
 - / -> Point d'entrée de l'application
-
 - /animals/ocean -> Retourne une liste d'animaux marins
 - /animals/desert -> Retourne une liste d'animaux du désert
 - /animals/pet -> Retourne une liste d'animaux domestiques
 
+## 3 - Reverse proxy avec Apache (configuration statique)
+
+L'utilisation du mode reverse proxy du serveur apache permet de n'avoir qu'un seul point d'entrée dans l'infrastructure lors des requêtes HTTP. Dépendant les chemins fournis aux requêtes HTTP, le reverse proxy va diriger la requête vers le serveur web approprié.
+
+### Configuration du reverse proxy sur Apache httpd
+
+Dans le dossier `/etc/apache2/` se trouve toute la configuration du serveur apache. Dans ce dossier se trouvent plusieurs sous-dossiers :
+
+- sites-available -> Contient la liste des configurations de sites disponibles pour le serveur
+- sites-enabled -> Contient la liste des sites actuellement activés sur le serveur
+
+Un site est représenté par un fichier `.conf` contenant une balise `<VirtualHost>`. Pour activer le mode reverse proxy il faut créer un fichier `.conf` et placer divers éléments dans la balise `<VirtualHost>` :
+
+- ServerName `<nom>` -> Le nom de l'en-tête host devant être fournie dans les requêtes HTTP
+- ProxyPass `<route>` `<to>` -> Lorsque le serveur reçoit la route `<route>` il redirige la requête vers l'adresse `<to>`
+- ProxyPassReverse `<route>` `<to>` -> Même chose que pour ProxyPass mais dans l'autre sens
+
+Pour les serveurs Apache statique et express dynamique le fichier ressemble a ceci :
+
+```sh
+<VirtualHost *:80>
+	ServerName demo.res.ch
+	
+	# Route for the dynamic express server
+	ProxyPass "/api/" "http://172.17.0.2:3000/"
+	ProxyPassReverse "/api/" "http://172.17.0.2:3000/"
+	
+	# Route for the static apache server
+	ProxyPass "/" "http://172.17.0.3:80/"
+	ProxyPassReverse "/" "http://172.17.0.3:80/"
+</VirtualHost>
+```
+
+Ne pas oublier d'inclure les modules nécessaires pour que le serveur Apache puisse faire du reverse proxy, puis activer le site :
+
+```sh
+a2enmod proxy
+a2enmod proxy_http
+a2ensite <nomDuFichierSite>
+service apache2 restart
+```
+
+Les deux serveurs sont maintenant accessibles via l'adresse et le port du proxy uniquement et peuvent être sélectionnés selon la route entrée dans la requête HTTP.
+
+### Création du dockerfile pour le reverse proxy
+
+Lîmage du reverse proxy peut être créer a partir d'un dockerfile assez simple :
+
+```dockerfile
+FROM php:7.2-apache
+COPY conf/ /etc/apache2
+
+RUN a2enmod proxy proxy_http
+RUN a2ensite 000-* 001-*
+
+EXPOSE 80
+```
+
+Dans le même dossier que le dockerfile doit se trouver un dossier `conf` contenant les fichiers `.conf` de configuration du site par défaut et du reverse proxy. Ces fichiers seront copiés dans le dossier `/etc/apache2/` de l'image à sa création.
+
+Le commandes activant les modules proxy sont ensuite exécutées avec la commande `a2enmod`, puis les deux sites sont activés sur le serveur avec la commande `a2ensite`.
+
+Le port 80 est a l'écoute de requêtes HTTP entrantes.
+
+### Démarrer tous les serveurs
+
+L'infrastructure est maintenant composée de trois serveurs distincs :
+
+- res/apache_static -> Serveur statique de l'étape 1 du laboratoire
+- res/express_dynamic -> Serveur Node.js et express.js dnamique de l'étape 2 du laboratoire
+- res/apache_rp -> Reverse proxy Apache configuré pour rediriger vers res/apache_static ou res/express_dynamic selon l'en-tête `Host:` des requêtes
+
+Pour démarrer tous les serveurs il suffit d'exécuter les commandes suivantes :
+
+```sh
+docker run -d --name express_dynamic res/express_dynamic
+docker run -d --name apache_static res/apache_static
+docker run -d -p 8080:80 apache_rp res/apache_rp
+```
+
+Le seul container ayant besoin d'un mappage de ports est le reverse proxy car il est le seul point d'entrée vers les autres serveurs de l'infrastructure.
+
+### Le proxy comme seul point d'entrée
+
+Dans cette nouvelle infrastructure, seul le proxy peut être utilisé pour joindre les deux autres serveurs car il est le seul ayant un port mappé sur la machine hôte.
+
+Le proxy va rediriger les requêtes HTTP **à l'intérieur du réseau de la machine Docker** en fonction du champ `Host:` fourni dans l'en-tête. Pour cette infrastructure, un en-tête `/` redirige vers le site statique tandis que `/api/` redirige vers le site express.js dynamique.
+
+### Configuration pas optimale et fragile
+
+Un gros soucis avec cette configuration Docker et ces trois serveurs est que le fichier de configuration dans le proxy possède des adresses IP écrites en dur pour la redirection. Or, les serveurs statiques et dynamiques peuvent ne pas avoir la même adresse IP car cela est défini automatiquement par docker à la création du container.
+
+Dans le cas ou les adresses IP ne sont pas les suivantes :
+
+| Image du container  | Adresse IPv4        |
+| ------------------- | ------------------- |
+| res/apache_static   | 172.17.0.3          |
+| res/express_dynamic | 172.17.0.2          |
+| res/apache_rp       | N'importe la quelle |
+
+Le proxy va rediriger les requêtes vers la mauvais adresse IP et il y aura des erreurs.
+
+Il faudrait pouvoir s'assurer que les adresses des deux serveurs web soient fixes pour éviter ce genre de problème.

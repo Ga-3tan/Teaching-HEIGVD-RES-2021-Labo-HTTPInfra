@@ -47,7 +47,7 @@ function listOfAnimals(type) {
 			name: chance.first({
 				gender: gender
 			}),
-			race: chance.animal({
+			species: chance.animal({
 				type: type
 			}),
 			birth: chance.birthday({

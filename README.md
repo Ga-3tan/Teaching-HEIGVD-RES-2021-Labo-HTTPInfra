@@ -61,3 +61,44 @@ La deuxième variante consiste à monter un volume à l'intérieur du container 
 
 Cela permet de modifier en direct les fichiers dans le dossier local et ceux-ci seront modifiés dans le dossier du container. Les modifications ne seront pas perdues à la fermeture du container.
 
+## 2 - Serveur HTTP dynamique avec express.js
+
+Un dockerfile avec une image Node.js et une copie de dossier `./src` a été crée. L'image peut être créée et lancée avec les commandes :
+
+```sh
+docker build -t res/express_students .
+docker run -d -p 9090:3000 res/express_students
+```
+
+La version de Node.js utilisée est `14.17` et un `package.json` a été crée avec `npm init` dans le dossier src qui sera copié dans le dossier `/opt/app` du container à sa création. Le port mapping est nécessaire pour accéder à l'application express.js depuis la machine hôte.
+
+### Configuration de express.js
+
+Dans le dossier src qui sera copié dans l'image, il faut faire la commande suivante pour créer un nouveau projet Node :
+
+```sh
+npm init
+```
+
+Ensuite, il faut simplement créer un fichier `index.js` qui sera exécuté par Node dans le container car dans le dockerfile il est demandé d'exécuter la commande `node /opt/app/index.js` avec la ligne :
+
+```dockerfile
+CMD ["node", "/opt/app/index.js"]
+```
+
+### Contenu du fichier index.js
+
+Le fichier `index.js` utilise `chance.js` et `express.js` pour gérer plusieurs routes et retourner des données `json` selon la route choisie.
+
+#### Liste d'animaux
+
+Les routes retournent une liste d'animaux selon le type d'animal voulu. A l'adresse HTTP racine, une simple indication des routes disponibles est donnée.
+
+#### Routes possibles
+
+- / -> Point d'entrée de l'application
+
+- /animals/ocean -> Retourne une liste d'animaux marins
+- /animals/desert -> Retourne une liste d'animaux du désert
+- /animals/pet -> Retourne une liste d'animaux domestiques
+

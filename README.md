@@ -90,7 +90,7 @@ npm install --save chance
 
 qui va créer une entrée "dependance" dans package.json ainsi qu'un dossier node_module
 
-On créer notre fichier index.js et on y fait un simple programme qui affiche un nom aléatoire avec *chance* :
+On créer notre fichier index.js et on y fait un simple programme qui affiche un nom aléatoire avec *chance* (ceci est juste un test pour voir si la dépendance fonctionne) :
 
 ```javascript
 var Chance = require('chance')
@@ -107,15 +107,15 @@ node index.js
 
 Lorsque l'ont se connecte, cela va retourner : "Bonjour  [un nom au hasard]" .
 
-On va ensuite tester l'exécution du script dans le container docker :
+On va ensuite tester l'exécution du script dans le container docker en liant le port 3000 du container avec le port 8080 du host :
 
 ```bash
 docker build -t res/node_express .
 
-docker run res/node_express
+docker run -p 8080:3000 res/node_express
 ```
 
-cela va afficher le même résultat que l'étape précédente mais depuis le container
+cela va afficher le même résultat que l'étape précédente mais depuis le container.
 
 ### Application express avec Docker
 

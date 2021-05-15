@@ -88,9 +88,9 @@ Puis installer la dépendance node.js *chance* avec :
 npm install --save chance
 ```
 
-qui va créer une entrée "dependance" dans package.json ainsi qu'un dossier node_module
+qui va créer une entrée "dependance" dans package.json ainsi qu'un dossier node_module qui contiendra toutes les dépendances (il est lourd).
 
-On créer notre fichier index.js et on y fait un simple programme qui affiche un nom aléatoire avec *chance* (ceci est juste un test pour voir si la dépendance fonctionne) :
+On créer notre fichier index.js et on y fait un simple programme qui affiche un nom aléatoire avec *chance* (ceci est juste un test pour voir si la dépendance et le serveur fonctionnent) :
 
 ```javascript
 var Chance = require('chance')
@@ -161,9 +161,9 @@ app.get('/', function(req, res) {
 
 Ces end-points font : 
 
-`/knock-knock` retournera une blague du type *toc-toc qui est là*
+`/knock-knock` retourne une blague du type *toc-toc qui est là*
 
-`/coin-flip/:face` retourna si l'utilisateur a gagné ou pas à pile ou face (il doit spécifier *heads* ou *tails* à la place de `:face`)
+`/coin-flip/:face` retourne si l'utilisateur a gagné ou pas à pile ou face (il doit spécifier *heads* ou *tails* à la place de `:face`)
 
 - La fonction express qui va permettre au serveur d'écouter sur le port 3000 :
 

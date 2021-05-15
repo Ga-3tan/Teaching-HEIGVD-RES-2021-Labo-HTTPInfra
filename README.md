@@ -76,13 +76,13 @@ CMD ["node", "/opt/app/index.js"]
 
 ### Création d'un projet node.js dans src
 
-on commence par initialiser un projet node.js avec :
+On commence par initialiser un projet node.js avec :
 
 ```bash
 npm init
 ```
 
-puis installer la dépendance node.js *chance* avec :
+Puis installer la dépendance node.js *chance* avec :
 
 ```bash
 npm install --save chance
@@ -90,7 +90,7 @@ npm install --save chance
 
 qui va créer une entrée "dependance" dans package.json ainsi qu'un dossier node_module
 
-on créer notre fichier index.js et on y fait un simple programme qui affiche un nom aléatoire avec *chance* :
+On créer notre fichier index.js et on y fait un simple programme qui affiche un nom aléatoire avec *chance* :
 
 ```javascript
 var Chance = require('chance')
@@ -105,7 +105,9 @@ et on l'exécute dans le terminal avec :
 node index.js
 ```
 
-on va ensuite tester l'exécution du script dans le container docker :
+Lorsque l'ont se connecte, cela va retourner : "Bonjour  [un nom au hasard]" .
+
+On va ensuite tester l'exécution du script dans le container docker :
 
 ```bash
 docker build -t res/node_express .
@@ -132,19 +134,38 @@ var express = require('express');
 var app = express();
 ```
 
--  les end-points `/` et `/students` pour les requêtes GET :
+-  Les end-points `/`, `/knock-knock` et  `/coin-flip/:face` pour les requêtes GET :
 
 ```javascript
-app.get('/students', function(req, res) {
-    res.send(generateStudents());
+var knockknock = require('knock-knock-jokes');
+app.get('/knock-knock', function(req, res) {
+    res.send(knockknock());
+});
+
+app.get('/coin-flip/:face', function(req, res) {
+    var coin = chance.coin();
+    var response = "It's " + coin + ". ";
+    if (req.params.face != "tails" && req.params.face != "heads") {
+        res.send("You must bet : tails or heads");
+    } else if (coin == req.params.face) {
+        res.send(response + "Congrats you won : " + chance.dollar());
+    } else {
+        res.send(response + "You lost : " + chance.dollar());
+    }
 });
 
 app.get('/', function(req, res) {
-    res.send("Hello, this endpoint is empty, try /students");
+    res.send("Hello, this endpoint is empty, try /coin-flip/:face or /knock-knock");
 });
 ```
 
-- la fonction express qui va permettre au serveur d'écouter sur le port 3000 :
+Ces end-points font : 
+
+`/knock-knock` retournera une blague du type *toc-toc qui est là*
+
+`/coin-flip/:face` retourna si l'utilisateur a gagné ou pas à pile ou face (il doit spécifier *heads* ou *tails* à la place de `:face`)
+
+- La fonction express qui va permettre au serveur d'écouter sur le port 3000 :
 
 ```javascript
 app.listen(3000, function() {
@@ -152,40 +173,5 @@ app.listen(3000, function() {
 });
 ```
 
-- la fonction `generateStudents()`utilise la dépendance *chance* pour créer un tableau d'élèves aléatoire :
-
-```javascript
-var Chance = require('chan
-var chance = new Chance();
-
-function generateStudents() {
-  var numberOfStudents = chance.integer({
-    min: 0,
-    max: 10,
-  });
-  console.log(numberOfStudents);
-  var students = [];
-  for (var i = 0; i < numberOfStudents; i++) {
-    var gender = chance.gender();
-    var birthYear = chance.year({
-      min: 1986,
-      max: 1996,
-    });
-    students.push({
-      firstName: chance.first({
-        gender: gender,
-      }),
-      lastName: chance.last(),
-      gender: gender,
-      birthday: chance.birthday({
-          year: birthYear
-      })
-    });
-  };
-  console.log(students);
-  return students;
-}
-```
-
-*Note* : le end-point `/` doit se trouver après le `/student` sinon il sera toujours pris.
+*Note* : le end-point `/` doit se trouver après les autres sinon il sera toujours pris.
 

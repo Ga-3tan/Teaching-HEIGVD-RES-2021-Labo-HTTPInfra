@@ -155,7 +155,7 @@ app.listen(3000, function() {
 - la fonction `generateStudents()`utilise la dépendance *chance* pour créer un tableau d'élèves aléatoire :
 
 ```javascript
-var Chance = require('chan
+var Chance = require('chance');
 var chance = new Chance();
 
 function generateStudents() {

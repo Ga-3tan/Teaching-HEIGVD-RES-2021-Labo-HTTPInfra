@@ -187,7 +187,7 @@ Le seul container ayant besoin d'un mappage de ports est le reverse proxy car il
 
 Dans cette nouvelle infrastructure, seul le proxy peut être utilisé pour joindre les deux autres serveurs car il est le seul ayant un port mappé sur la machine hôte.
 
-Le proxy va rediriger les requêtes HTTP **à l'intérieur du réseau de la machine Docker** en fonction du champ `Host:` fourni dans l'en-tête. Pour cette infrastructure, un en-tête `/` redirige vers le site statique tandis que `/api/` redirige vers le site express.js dynamique.
+Le proxy va rediriger les requêtes HTTP **à l'intérieur du réseau de la machine Docker** en fonction du champ `Host:` fourni dans l'en-tête. Cet en-tête `Host:` **doit** être `demo.res.ch` pour que le proxy retourne les bonnes représentations de ressources. Si le `Host:` n'est pas bon, la page retournée est une erreur 403 (Forbidden) car la requête n'est pas envoyée sur le bon nom de site. Pour cette infrastructure, un en-tête `/` redirige vers le site statique tandis que `/api/` redirige vers le site express.js dynamique.
 
 ### Configuration pas optimale et fragile
 
@@ -213,5 +213,31 @@ Pour mettre plus de manipulations à l'intérieur des containers, il est pratiqu
 
 ```dockerfile
 RUN apt-get update && apt-get install -y vim
+```
+
+### Création d'un script JS
+
+L'outil `vim` est maintenant installé et il est donc possible de se connecter au container `apache_static` pour y ajouter un nouveau script Javascript.
+
+En utilisant la commande :
+
+```sh
+docker exec -it apache_static /bin/bash
+```
+
+Il est possible de se connecter à un bash directement dans le container. Le dossier dans lequel s'ouvre le bash est le dossier contenant les ficheirs du serveur web. Le fichier `index.html` correspond à la page d'accueil du site. Les scripts JS sont contenus dans le dossier `/js`.
+
+Il suffit d'ajouter le code suivant pour charger le script `students.js` dans la page d'accueil :
+
+```html
+<script src="js/students.js"></script>
+```
+
+Le contenu du script est le suivant :
+
+```javascript
+$(function() {
+  console.log("Loading students");
+})
 ```
 

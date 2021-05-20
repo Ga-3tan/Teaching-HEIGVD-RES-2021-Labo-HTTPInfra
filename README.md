@@ -178,7 +178,7 @@ Pour démarrer tous les serveurs il suffit d'exécuter les commandes suivantes :
 ```sh
 docker run -d --name express_dynamic res/express_dynamic
 docker run -d --name apache_static res/apache_static
-docker run -d -p 8080:80 apache_rp res/apache_rp
+docker run -d -p 8080:80 --name capache_rp res/apache_rp
 ```
 
 Le seul container ayant besoin d'un mappage de ports est le reverse proxy car il est le seul point d'entrée vers les autres serveurs de l'infrastructure.
@@ -204,3 +204,14 @@ Dans le cas ou les adresses IP ne sont pas les suivantes :
 Le proxy va rediriger les requêtes vers la mauvais adresse IP et il y aura des erreurs.
 
 Il faudrait pouvoir s'assurer que les adresses des deux serveurs web soient fixes pour éviter ce genre de problème.
+
+## 4 - Requêtes AJAX avec JQuery
+
+### Mise à jour des images
+
+Pour mettre plus de manipulations à l'intérieur des containers, il est pratique d'ajouter les commandes suivantes au Dockerfile qui vont installer automatiquement l'outil `vim` pour effectuer des modifications sur les ficheirs des containers.
+
+```dockerfile
+RUN apt-get update && apt-get install -y vim
+```
+

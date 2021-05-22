@@ -249,3 +249,6 @@ On configure ensuite le ProxyPass et ProxyPassReverse qui vont servir d'aiguilla
 Il faut maintenant faire en sorte que notre browser utilise l'en-tête `Host: demo.res.ch` lorsqu'on essaie d'y accéder. Pour cela il faut configurer le fichier hosts (sur Windows il se trouve au chemin : `C:\Windows\System32\drivers\etc`) et y rajouter la ligne : `127.0.0.1 demo.res.ch`.
 
 Maintenant il est possible d'accéder de faire nos requêtes sur le reverse proxy simplement un allant sur demo.res.ch  depuis le navigateur.
+
+### 4. AJAX avec JQuery
+

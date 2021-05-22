@@ -175,3 +175,77 @@ app.listen(3000, function() {
 
 *Note* : le end-point `/` doit se trouver après les autres sinon il sera toujours pris.
 
+### 3. Reverse proxy
+
+- On créer 2 container : le `express_dynamic` et le `apache_static`, qui seront nos deux serveurs :
+
+```bash
+$ docker run -d --name apache_static res/apache_php
+$ docker run -d --name express_dynamic res/node_express
+```
+
+- On cherche leur adresse IP :
+
+```bash
+$ docker inspect apache_static | grep -i ipaddress
+            "SecondaryIPAddresses": null,
+            "IPAddress": "172.17.0.3",
+                    "IPAddress": "172.17.0.3",
+$ docker inspect express_dynamic | grep -i ipaddress
+            "SecondaryIPAddresses": null,
+            "IPAddress": "172.17.0.4",
+                    "IPAddress": "172.17.0.4",
+```
+
+On observe donc qu'on a notre serveur statique `apache_static` qui tourne à l'adresse `172.17.0.3` sur le port `80`
+
+Et notre api dynamique `express_dynamic` qui tourne à l'adresse `172.17.0.4` sur le port `3000`
+
+*Note* : attention à ne pas refermer ces containers, sinon leur adresse IP ne sera plus la même (car Docker les alloue dynamiquement)
+
+Maintenant il faut créer le serveur reverse proxy pour pouvoir aiguiller les requêtes sur les serveurs respectifs, pour cela on va créer une nouvelle image `res/apache_rp`  avec le Dockerfile suivant :
+
+```dockerfile
+FROM php:7.2-apache
+
+COPY conf/ /etc/apache2
+
+RUN a2enmod proxy proxy_http
+RUN a2ensite 000-* 001-*
+
+EXPOSE 80
+```
+
+Dans ce Dockerfile on créer une image à partir d'un serveur `apache php (ver 7.2)` et on va copier les configurations du dossier `sites-available` (plus précisément les fichier `000-default.conf` et `001-reverse-proxy.conf`) dans notre container.
+
+On va ensuite configurer le proxy dans `001-reverse-proxy.conf` de la façon suivante :
+
+```xml
+<VirtualHost *:80>
+    ServerName demo.res.ch
+    
+    #ErrorLog ${APACHE_LOG_DIR}/error.log
+    #CustomLog ${APACHE_LOG_DIR}/access.log combined
+    
+    ProxyPass "/api/fun/" "http://172.17.0.3:3000/"
+    ProxyPassReverse "/api/fun/" "http://172.17.0.3:3000/"
+    
+    ProxyPass "/" "http://172.17.0.2:80/"
+    ProxyPassReverse "/" "http://172.17.0.2:80/"
+</VirtualHost>
+```
+
+Dans ce fichier, on ajoute le nom du serveur qui servira pour être reconnu par l'en-tête http `Host`. Pour l'instant on va garder les Log commenté à cause d'une erreur de l'image, on y reviendra plus tard.
+
+On configure ensuite le ProxyPass et ProxyPassReverse qui vont servir d'aiguillage vers nos deux serveurs. On l'a configuré de cette façon :
+
+- Si la requêtes commence par /api/fun/ elle va être redirigée vers le serveur `express_dynamic` à l'adresse `http://172.17.0.3:3000/`
+  - on pourra ainsi faire les requêtes `/knock-knock` pour avoir une blague ou jouer à pile ou face avec `/coin-flip/[heads, tails]`.
+- Si celle-ci commence n'est pas `/api/fun/` elle va être redirigée vers le serveur `apache_static`  à l'adresse `http://172.17.0.2:80/`
+  - on pourra ainsi voir la page web retournée par le serveur statique.
+
+*Note* : pour le `000-default.conf`, on laisse l'intérieur de VirtualHost vide.
+
+Il faut maintenant faire en sorte que notre browser utilise l'en-tête `Host: demo.res.ch` lorsqu'on essaie d'y accéder. Pour cela il faut configurer le fichier hosts (sur Windows il se trouve au chemin : `C:\Windows\System32\drivers\etc`) et y rajouter la ligne : `127.0.0.1 demo.res.ch`.
+
+Maintenant il est possible d'accéder de faire nos requêtes sur le reverse proxy simplement un allant sur demo.res.ch  depuis le navigateur.

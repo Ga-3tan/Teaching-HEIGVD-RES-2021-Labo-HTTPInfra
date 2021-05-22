@@ -201,7 +201,7 @@ On observe donc qu'on a notre serveur statique `apache_static` qui tourne à l'a
 
 Et notre api dynamique `express_dynamic` qui tourne à l'adresse `172.17.0.4` sur le port `3000`
 
-*Note* : attention à ne pas refermer ces containers, sinon leur adresse IP ne sera plus la même (car Docker les alloue dynamiquement)
+*Note* : attention à ne pas refermer ces containers, sinon leur adresse IP ne sera plus la même (car Docker les alloue dynamiquement). Cela rend notre système très fragile car il suffit que Docker décide d'allouer une adresse différente à l'un de serveur pour qu'il y ait des problèmes.
 
 Maintenant il faut créer le serveur reverse proxy pour pouvoir aiguiller les requêtes sur les serveurs respectifs, pour cela on va créer une nouvelle image `res/apache_rp`  avec le Dockerfile suivant :
 

@@ -3,8 +3,29 @@ var chance = new Chance();
 
 var knockknock = require('knock-knock-jokes');
 
+var randomJpnEmoji = require("random-jpn-emoji");
+
 var express = require('express');
 var app = express();
+
+app.get('/emoji', function(req, res) {
+   var rd = chance.integer({ min: 0, max: 3 });
+   var response;
+   switch (rd) {
+        case 0: 
+            response = randomJpnEmoji.happy();
+            break;
+        case 1: 
+            response = randomJpnEmoji.sad();
+            break;
+        case 2: 
+            response = randomJpnEmoji.helpless();
+            break;
+        default: 
+            response = randomJpnEmoji.shock();
+   }
+   res.send(response);
+});
 
 app.get('/knock-knock', function(req, res) {
     res.send(knockknock());

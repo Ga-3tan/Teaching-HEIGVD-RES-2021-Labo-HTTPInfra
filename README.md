@@ -286,3 +286,58 @@ Ensuite, le nom de host à respecter est défini par le reverse proxy et doit ê
 
 Il n'est donc pas possible de contacter directement les serveurs `Apache` et `NodeJS` sans passer par le reverse proxy.
 
+## 5 - Configuration dynamique du reverse proxy
+
+Le but de cette partie est de résoudre le problème concernant les adresses IP des containers `Apache` et `NodeJS` afin que le reverse proxy gère ces dernières de façon dynamique.
+
+Pour ce faire, il faut que les adresses soient définies manuellement au démarrage du reverse proxy afin qu'elles correspondent au adresses des deux serveurs `Apache` et `NodeJS`. La commande `run` va donc être utilisée pour configurer des variables d'environnement dans le container docker, puis un script php se chargera de configurer le reverse proxy avec ces variables pour que les redirections se fassent vers les bonnes adresses IP.
+
+### Modification de l'image docker
+
+Lorsque le serveur Apache reverse proxy se lance, il exécute un script nommé `apache2-foreground`. Ce script peut être modifié pour afficher la configuration du serveur pour le laboratoire RES. Son contenu a été récupéré dans un container qui tournait, puis les lignes suivantes ont été ajoutées au début du script :
+
+```sh
+# Add setup for RES lab
+echo "Setup for the RES lab..."
+echo "Static app URL  : $STATIC_APP"
+echo "Dynamic app URL : $DYNAMIC_APP"
+
+# Calls php reverse proxy setup file
+php /var/apache2/templates/config-template.php > /etc/apache2/siztes-available/001-reverse-proxy.conf
+```
+
+Cela affiche dans le log du container les valeurs des deux variables d'environnement `$STATIC_APP` et `$DYNAMIC_APP` et exécute le script php créant la config du proxy. Le résultat du script php est placé dans le fichier de configuration du reverse proxy (Les adresses ip sont donc les valeurs des variables d'environnement spécifiées avec la commande `run`).
+
+Une fois l'image docker reconstruite (`build`), il ne reste plus qu'à lancer un cnouveau container avec l'option `-e` pour spécifier des varialbes d'environnement :
+
+```sh
+docker run -e STATIC_APP=172.17.0.3:80 -e DYNAMIC_APP=172.17.0.2:3000 -d -p 8080:80 --name apache_rp res/apache_rp
+```
+
+### Le script PHP
+
+Le script `php` est placé dans un dossier templates dans un fichier nommé `config-template.php`. Ce srcript retourne le contenu du fichier de configuration `001-reverse-proxy.conf` du reverse proxy avec les bonnes adresses ip.
+
+En `php`, il est possible d'obtenir la valeur des variables d'environnement avec la fonction `getenv()`.
+
+```php
+<?php
+$static  = getenv('STATIC_APP');
+$dynamic = getenv('DYNAMIC_APP');
+?>
+
+<VirtualHost *:80>
+	ServerName demo.res.ch
+	
+	# Route for the dynamic express server
+	ProxyPass '/api/' 'http://<?php echo $dynamic ?>/'
+	ProxyPassReverse '/api/' 'http://<?php echo $dynamic ?>/'
+	
+	# Route for the static apache server
+	ProxyPass '/' 'http://<?php echo $static ?>/'
+	ProxyPassReverse '/' 'http://<?php echo $static ?>/'
+</VirtualHost>
+```
+
+
+

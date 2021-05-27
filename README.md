@@ -178,7 +178,7 @@ Pour démarrer tous les serveurs il suffit d'exécuter les commandes suivantes :
 ```sh
 docker run -d --name express_dynamic res/express_dynamic
 docker run -d --name apache_static res/apache_static
-docker run -d -p 8080:80 --name capache_rp res/apache_rp
+docker run -d -p 8080:80 --name apache_rp res/apache_rp
 ```
 
 Le seul container ayant besoin d'un mappage de ports est le reverse proxy car il est le seul point d'entrée vers les autres serveurs de l'infrastructure.
@@ -241,3 +241,37 @@ $(function() {
 })
 ```
 
+### Modification dynamique du DOM avec AJAX
+
+Le script Javascript peut être utilisé pour modifier le document html de façon dynamique sans avoir à recharger la page web. Pour se faire il suffit d'exécuter une requête `AJAX` qui va récupérer des données (un `JSON` par exemple) et va les afficher priodiquement à l'écran.
+
+```js
+$(function() {
+    console.log("Loading animals");
+
+    // Function that displays an animal name
+    function loadAnimals() {
+        
+        // Selects the category
+        var value = Math.floor(Math.random() * 3);
+        var category = "ocean";
+        if (value == 1) { category = "desert"; }
+        else if (value == 2) { category = "pet"; }
+
+        // Sets the message
+        $.getJSON("/api/animals/" + category + "/", function(animals) {
+            var message = "No animal found";
+            if (animals.length > 0) {
+                message = animals[0].name + " the " + animals[0].species + " says hello !"
+            }
+            $(".skills").text(message);
+        });
+    };
+
+    // Loads the function periodically
+    loadAnimals();
+    setInterval(loadAnimals, 2000);
+});
+```
+
+Ce script est chargé par la page `index.html`.

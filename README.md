@@ -275,3 +275,14 @@ $(function() {
 ```
 
 Ce script est chargé par la page `index.html`.
+
+### Pourquoi la démo ne fonctionnerait pas sans reverse proxy
+
+Le rôle du reverse proxy est de reçevoir toutes les requêtes dirigées vers le serveur `Apache` statique ou `NodeJS` dynamique.
+
+Premièrement, il n'est pas possible de joindre les serveurs `Apache` ou `NodeJS` directement car il n'ont pas de port disponible en dehors du réseau docker. Le seul port disponible est celui du reverse proxy et cela implique donc une seule entrée possible.
+
+Ensuite, le nom de host à respecter est défini par le reverse proxy et doit être `demo.res.ch` pour que la redirection se fasse correctement.
+
+Il n'est donc pas possible de contacter directement les serveurs `Apache` et `NodeJS` sans passer par le reverse proxy.
+

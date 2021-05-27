@@ -252,3 +252,138 @@ Maintenant il est possible d'accéder de faire nos requêtes sur le reverse prox
 
 ### 4. AJAX avec JQuery
 
+On commence tout d'abord à ajouter VIM à toutes les images en ajoutant la ligne suivante dans les Dockerfile :
+
+```dockerfile
+RUN apt-get update && \
+    apt-get install -y vim
+```
+
+Cela sera utile pour éditer les fichiers et scripts directement depuis le container en cours. Cependant il est préférable de faire les changements en local car ceux fais dans le containers ne seront pas sauvegardé si on tue et nettoie l'image.
+
+Après avoir rebuild toutes les images, on va passer aux requêtes Ajax.
+
+On veut créer un script javascript qui va remplacer un champ du site par une réponse de l'API périodiquement.
+
+Pour cela, on créer un fichier `res-lab-script.js`dans le dossier `content/assets/js` du serveur statique qui contiendra la requêtes Ajax.
+
+```javascript
+$(function() {
+    console.log("Loading emoji");
+    
+    function loadEmoji() {
+        $.get("/api/fun/emoji", function(emoji) {
+            console.log(emoji);
+            $(".emoji").text(emoji);
+        });
+    };
+    
+    loadEmoji();
+    setInterval(loadEmoji, 5000);
+});
+```
+
+Un appel à Ajax se fait avec `$`. 
+
+On définit la fonction asynchrone `loadEmoji()` qui fait la requête `GET` avec `$.get(uri, callback)`, ici la requête va demander un emoji ASCII à l'API et remplacer le contenu de la balise de classe `emoji` de la page HTML : `<h6 class="emoji">¯\_(ツ)_/¯</h6>`.
+
+On fait un appel de la fonction puis on ajoute un appel périodique de la requêtes, toutes les 5 secondes.
+
+On peut voir le bon fonctionnement de la requêtes depuis l'onglet network des devtools du browser.
+
+![image-20210522164402756](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210522164402756.png)
+
+*note* : un end-point `/emoji` a été rajouté au serveur node express, il utilise le package `random-jpn-emoji` pour renvoyer un simple emoji ASCII random. Il se présente comme suit :
+
+```javascript
+...
+
+var randomJpnEmoji = require("random-jpn-emoji");
+
+...
+
+app.get('/emoji', function(req, res) {
+   var rd = chance.integer({ min: 0, max: 3 });
+   var response;
+   switch (rd) {
+        case 0: 
+            response = randomJpnEmoji.happy();
+            break;
+        case 1: 
+            response = randomJpnEmoji.sad();
+            break;
+        case 2: 
+            response = randomJpnEmoji.helpless();
+            break;
+        default: 
+            response = randomJpnEmoji.shock();
+   }
+   res.send(response);
+});
+
+...
+```
+
+### 5. Configuration dynamique du reverse proxy
+
+Pour cette partie on va utiliser la fonctionnalité de Docker : le DNS intégré. Docker permet à tous les containers connectés à un `user defined network` de s'identifier entre eux par leur nom. Donc au lieu d'utiliser l'adresse IP il suffira de spécifier le nom du container.
+
+On va tout d'abord changer les adresses IP du `001-reverse-proxy.conf` par les noms des containers :
+
+```xml
+<VirtualHost *:80>
+    ServerName demo.res.ch
+    
+    ProxyPass "/api/fun/" "http://node_express:3000/"
+    ProxyPassReverse "/api/fun/" "http://node_express:3000/"
+    
+    ProxyPass "/" "http://apache_php:80/"
+    ProxyPassReverse "/" "http://apache_php:80/"
+</VirtualHost>
+```
+
+Ici le serveur back-end a le nom node_express et le serveur front-end a le nom apache_php.
+
+Il suffit ensuite de créer un `user defined network` et de `run` les 3 serveurs sur ce même network avec l'option `--net [networkName]`.
+
+Pour automatiser cette partie, on va utiliser `docker-compose` pour lancer les 3 serveurs ainsi que le network (si inexistant) en même temps.
+
+```yaml
+version: "3.1"
+
+services:
+
+    apache_rp:
+        image: res/apache_rp:latest
+        container_name: apache_rp
+        ports:
+            - "8080:80"
+        networks:
+            - res-net
+
+    apache-php:
+        image: res/apache_php:latest
+        container_name: apache_php
+        networks:
+            - res-net
+
+    node-express:
+        image: res/node_express:latest
+        container_name: node_express
+        networks:
+            - res-net
+
+networks:
+    res-net:
+```
+
+Dans ce fichier docker-compose, on créer 3 services qui correspondent à nos serveurs. Pour chaque service on spécifie le nom de l'image voulue, le nom du container (doit être le même que dans le fichier de configuration du reverse-proxy) ainsi que le nom du networks sur lequel il sera connecté.
+
+À la fin on créer un network res-net qui sera utilisé pour nos containers.
+
+Pour terminer il suffit juste de démarrer les services en lançant le fichier `docker-compose.yml` avec la commande :
+
+```bash
+$ docker-compose up
+```
+

@@ -1,7 +1,7 @@
 docker kill apache_rp
-docker kill express_dynamic
-docker kill apache_static
+docker kill node_express
+docker kill apache_php
 
 docker rm apache_rp
-docker rm express_dynamic
-docker rm apache_static
+docker rm node_express
+docker rm apache_php

@@ -1,0 +1,26 @@
+version: "3.1"
+
+services:
+
+    apache_rp:
+        image: res/apache_rp:latest
+        container_name: apache_rp
+        ports:
+            - "8080:80"
+        networks:
+            - res-net
+
+    apache-php:
+        image: res/apache_php:latest
+        container_name: apache_php
+        networks:
+            - res-net
+
+    node-express:
+        image: res/node_express:latest
+        container_name: node_express
+        networks:
+            - res-net
+
+networks:
+    res-net:

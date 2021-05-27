@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  apache_static:
+    image: res/apache_static
+    container_name: apache_static
+    networks:
+      - res-net
+  express_dynamic:
+    image: res/express_dynamic
+    container_name: express_dynamic
+    networks:
+      - res-net
+
+  apache_rp:
+    image: res/apache_rp
+    container_name: apache_rp
+    ports:
+      - 8080:80
+    networks:
+      - res-net
+
+networks:
+  res-net:

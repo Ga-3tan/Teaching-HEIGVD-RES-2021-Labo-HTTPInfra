@@ -286,3 +286,49 @@ Ensuite, le nom de host à respecter est défini par le reverse proxy et doit ê
 
 Il n'est donc pas possible de contacter directement les serveurs `Apache` et `NodeJS` sans passer par le reverse proxy.
 
+## 5 - Configuration dynamique du reverse proxy
+
+Le but de cette partie est de résoudre le problème concernant les adresses IP des containers `Apache` et `NodeJS` afin que le reverse proxy gère ces dernières de façon dynamique.
+
+Pour ce faire, il est possible d'utilise Docker Compose pour lancer toutes les images et créer un réseau dans lequel les images se connaissent par leur nom d'hôte. Grâce à cela, le reverse proxy peut utiliser les noms d'hote des serveurs Apache et NodeJS dans sa configuration.
+
+En effet, selon la documentation Docker, si plusieur containers se trouvent dans un même réseau **définit manuellement par l'utilisateur**, ils peuvent se contacter grâce à leur nom d'hôte qui est le nom du container docker. Il n'y a donc plus besoin de conaître l'adresse IP exacte des serveurs, le `DNS` intégré à docker se chargera de traduire les noms d'hôte.
+
+### Configuration de Docker Compose
+
+La configuration est simple. Premièrement, il faut modifier le fichier de configuration du reverse proxy en remplaçant les adresses IP par les noms des containers docker.
+
+Ensuite, il faut créer un ficheir `docker-compose.yaml` dans lequel on place les containers à créer et le réseau dans lequel ils se trouveront :
+
+```yaml
+version: "3.9"
+services:
+  apache_static:
+    image: res/apache_static
+    container_name: apache_static
+    networks:
+      - res-net
+  express_dynamic:
+    image: res/express_dynamic
+    container_name: express_dynamic
+    networks:
+      - res-net
+
+  apache_rp:
+    image: res/apache_rp
+    container_name: apache_rp
+    ports:
+      - 8080:80
+    networks:
+      - res-net
+
+networks:
+  res-net:
+```
+
+Pour lancer tous les containers, il suffit d'utiliser la commande suivante dans le dossier du fichier `docker-compose.yaml `:
+
+```sh
+docker compose up
+```
+

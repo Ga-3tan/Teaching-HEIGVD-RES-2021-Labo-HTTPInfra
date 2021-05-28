@@ -16,14 +16,25 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
 
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: "portainer"
+    command: -H unix:///var/run/docker.sock
+    restart: always
+    ports:
+      - "8989:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
   apache_php:
     image: "res/apache_php"
     labels:
       - "traefik.enable=true" # Enables Traefik reverse proxy
       - "traefik.http.routers.static.rule=Host(`demo.res.ch`) && PathPrefix(`/`)" # When Host header has the prefix /
       - "traefik.http.routers.static.entrypoints=web"
-      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
-      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=static_sticky" # Sets the cookie name
+      - "traefik.http.services.static-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.static-service.loadBalancer.sticky.cookie.name=static_sticky" # Sets the cookie name
 
   node_express:
     image: "res/node_express"
@@ -34,8 +45,8 @@ services:
       - "traefik.http.middlewares.strip-dynamic.stripprefix.forceSlash=false" # Doesn't force slashes on host name
       - "traefik.http.routers.dynamic.middlewares=strip-dynamic" # Applies the stripprefix rule
       - "traefik.http.routers.dynamic.entrypoints=web"
-      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
-      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=dynamic_sticky" # Sets the cookie name
+      - "traefik.http.services.dynamic-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.dynamic-service.loadBalancer.sticky.cookie.name=dynamic_sticky" # Sets the cookie name
 
 # Container used to test and demonstrate Traefik load balancing
   whoami:
@@ -49,3 +60,6 @@ services:
       - "traefik.http.routers.whoami.entrypoints=web"
       - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
       - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=whoami_sticky" # Sets the cookie name
+
+volumes:
+  portainer_data:

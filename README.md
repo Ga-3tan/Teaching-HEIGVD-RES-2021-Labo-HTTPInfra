@@ -523,14 +523,25 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
 
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: "portainer"
+    command: -H unix:///var/run/docker.sock
+    restart: always
+    ports:
+      - "8989:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
   apache_php:
     image: "res/apache_php"
     labels:
       - "traefik.enable=true" # Enables Traefik reverse proxy
       - "traefik.http.routers.static.rule=Host(`demo.res.ch`) && PathPrefix(`/`)" # When Host header has the prefix /
       - "traefik.http.routers.static.entrypoints=web"
-      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
-      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=static_sticky" # Sets the cookie name
+      - "traefik.http.services.static-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.static-service.loadBalancer.sticky.cookie.name=static_sticky" # Sets the cookie name
 
   node_express:
     image: "res/node_express"
@@ -541,8 +552,8 @@ services:
       - "traefik.http.middlewares.strip-dynamic.stripprefix.forceSlash=false" # Doesn't force slashes on host name
       - "traefik.http.routers.dynamic.middlewares=strip-dynamic" # Applies the stripprefix rule
       - "traefik.http.routers.dynamic.entrypoints=web"
-      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
-      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=dynamic_sticky" # Sets the cookie name
+      - "traefik.http.services.dynamic-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.dynamic-service.loadBalancer.sticky.cookie.name=dynamic_sticky" # Sets the cookie name
 
 # Container used to test and demonstrate Traefik load balancing
   whoami:
@@ -557,6 +568,8 @@ services:
       - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
       - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=whoami_sticky" # Sets the cookie name
 
+volumes:
+  portainer_data:
 ```
 
 Les labels définis pour chaque container sont importants car ils permettent de configurer le container afin qu'il soit accessible via le reverse proxy Traefik.
@@ -568,6 +581,10 @@ Les labels définis pour chaque container sont importants car ils permettent de 
 - La commande `--entrypoints.web.address` spécifie que le port 80 est à l'écoute des requêtes
 - Le port 80 est mappé sur le port 80 et sert à l'envoi des requêtes
 - Le port 8080 est mappé sur le port 8080 et sert à l'accès au dashboard `Traefik`
+
+#### Configuration de l'image portainer
+
+Pour plus d'informations concernant `Portainer`, voir la section Management UI.
 
 #### Configuration de l'image apache_php
 
@@ -632,7 +649,63 @@ Si plusieurs requêtes sont maintenant faites depuis un navigateur, l'adresse IP
 
 Il est possible de voir le cookie de session avec les outils de développement dans le navigateur. Le cookie possède l'adresse IP du container associé à l'échange avec le client.
 
+<img src="README/img/cookie.png" alt="cookie" style="zoom:50%;" />
+
 ## Dynamic cluster management
+
+Grâce au reverse proxy `Traefik`, dès qu'un container est crée ou supprimé, le load balancing s'adapte automatiquement.
+
+### Exemple
+
+Lancer l'infrastructure avec un seul serveur `whoami` :
+
+<img src="README/img/example1.png" alt="cookie" style="zoom:50%;" />
+
+Effectuer des requêtes sur ce serveur avec `curl` :
+
+<img src="README/img/example2.png" alt="cookie" style="zoom:50%;" />
+
+L'adresse IP est toujours la même car il n'y a qu'un seul serveur disponible.
+
+Ajouter maintenant un nouveau serveur `whoami` depuis `portainer` (voir section suivante) en dupliquant le serveur actuel :
+
+<img src="README/img/example3.png" alt="cookie" style="zoom:50%;" />
+
+Effectuer a nouveau des requêtes avec `curl`, cette fois les requêtes sont réparties sur les deux serveurs `whoami` :
+
+<img src="README/img/example4.png" alt="cookie" style="zoom:50%;" />
+
+Le nouveau serveur `whoami` a donc bien été détecté par `Traefik` et est utilisé pour le load balancing.
 
 ## Management UI
 
+Afin de faciliter la manipulation des containers Docker, une interface est accessible à l'adresse `http://localhost:8989`. Cette interface est un container Portainer, un outil permettant la gestion des containers Docker locaux. Il est possible d'en arrêter ou d'en démarrer et de visualiser l'état actuel de l'infrastructure.
+
+Le container est configuré dans le fichier `docker-compose.yaml` :
+
+```yaml
+portainer:
+    image: portainer/portainer-ce:latest
+    container_name: "portainer"
+    command: -H unix:///var/run/docker.sock
+    restart: always
+    ports:
+      - "8989:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+```
+
+Portainer possède une interface accessible via le port 8989 (le dashboard).
+
+## Récapitulatif des URL disponibles
+
+| URL                      | Destination                                                  |
+| ------------------------ | ------------------------------------------------------------ |
+| http://localhost:8080    | Dashboard du reverse proxy `Traefik`                         |
+| http://localhost:8989    | Accès au panneau de configuration Portainer (gestion des containers docker) |
+| http://demo.res.ch/      | Accès au site statique (Apache)                              |
+| http://demo.res.ch/api/  | Accès au site dynamique (NodeJS)                             |
+| http://demo.res.ch/test/ | Accès au serveur `whoami` de test                            |
+
+Attention, le nom de `demo.res.ch` doit pointer vers `localhost` dans le fichier hosts du système.

@@ -16,14 +16,16 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
 
-  apache_static:
+  apache_php:
     image: "res/apache_php"
     labels:
       - "traefik.enable=true" # Enables Traefik reverse proxy
       - "traefik.http.routers.static.rule=Host(`demo.res.ch`) && PathPrefix(`/`)" # When Host header has the prefix /
       - "traefik.http.routers.static.entrypoints=web"
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=static_sticky" # Sets the cookie name
 
-  express_dynamic:
+  node_express:
     image: "res/node_express"
     labels:
       - "traefik.enable=true" # Enables Traefik reverse proxy
@@ -32,11 +34,18 @@ services:
       - "traefik.http.middlewares.strip-dynamic.stripprefix.forceSlash=false" # Doesn't force slashes on host name
       - "traefik.http.routers.dynamic.middlewares=strip-dynamic" # Applies the stripprefix rule
       - "traefik.http.routers.dynamic.entrypoints=web"
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=dynamic_sticky" # Sets the cookie name
 
 # Container used to test and demonstrate Traefik load balancing
   whoami:
     image: "traefik/whoami"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
+      - "traefik.http.routers.whoami.rule=Host(`demo.res.ch`) && PathPrefix(`/test`)"
+      - "traefik.http.middlewares.strip-whoami.stripprefix.prefixes=/test" # Rule to remove the prefix /test when forwarding to the server
+      - "traefik.http.middlewares.strip-whoami.stripprefix.forceSlash=false" # Doesn't force slashes on host name
+      - "traefik.http.routers.whoami.middlewares=strip-whoami" # Applies the stripprefix rule
       - "traefik.http.routers.whoami.entrypoints=web"
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=whoami_sticky" # Sets the cookie name

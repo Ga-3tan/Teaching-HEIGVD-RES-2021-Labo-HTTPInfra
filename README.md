@@ -486,3 +486,153 @@ Pour lancer tous les containers, il suffit d'utiliser la commande suivante dans 
 docker compose up
 ```
 
+## Load balancing - plusieurs noeuds de serveurs en même temps
+
+Pour les fonctionnalités supplémentaires du laboratoire, il a été décidé de changer certains éléments principaux de l'infrastructure.
+
+Afin d'intégrer le mécanisme de load balancing, le serveur `Apache httpd` à été abandonné au profit de la solution de reverse proxy `Traefik`.
+
+### Traefik
+
+`Traefik`est un outil similaire à `Apache httpd` spécialisé dans le reverse proxy. C'est un outil plus récent bien documenté et facile à mettre en place dans un environnement Docker.
+
+Une [image Docker](https://hub.docker.com/_/traefik) officielle est disponible sur Docker Hub, l'image utilisée est la plus récente.
+
+### Modification du fichier docker-compose
+
+L'adaptation de l'infrastructure est assez simple. En reprenant la configuration de la dernière étape avec le fichier docker-compose.yaml, il est possibile d'adapter les options pour lancer un container Traefik et les deux containers des étapes précédentes (le serveur statique `Apache` et le serveur `NodeJS` dynamique).
+
+Ci-dessous le fichier docker-compose.yaml contenant toute la configuration de l'infrastructure :
+
+```yaml
+version: "3.3"
+
+services:
+
+  traefik:
+    image: "traefik:latest"
+    container_name: "traefik"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80" # Port for incoming requests on reverse proxy
+    ports:
+      - "80:80" # Port for requests
+      - "8080:8080" # Port for Traefik dashboard
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  apache_php:
+    image: "res/apache_php"
+    labels:
+      - "traefik.enable=true" # Enables Traefik reverse proxy
+      - "traefik.http.routers.static.rule=Host(`demo.res.ch`) && PathPrefix(`/`)" # When Host header has the prefix /
+      - "traefik.http.routers.static.entrypoints=web"
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=static_sticky" # Sets the cookie name
+
+  node_express:
+    image: "res/node_express"
+    labels:
+      - "traefik.enable=true" # Enables Traefik reverse proxy
+      - "traefik.http.routers.dynamic.rule=Host(`demo.res.ch`) && PathPrefix(`/api`)" # When Host header has the prefix /api
+      - "traefik.http.middlewares.strip-dynamic.stripprefix.prefixes=/api" # Rule to remove the prefix /api when forwarding to the node server
+      - "traefik.http.middlewares.strip-dynamic.stripprefix.forceSlash=false" # Doesn't force slashes on host name
+      - "traefik.http.routers.dynamic.middlewares=strip-dynamic" # Applies the stripprefix rule
+      - "traefik.http.routers.dynamic.entrypoints=web"
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=dynamic_sticky" # Sets the cookie name
+
+# Container used to test and demonstrate Traefik load balancing
+  whoami:
+    image: "traefik/whoami"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`demo.res.ch`) && PathPrefix(`/test`)"
+      - "traefik.http.middlewares.strip-whoami.stripprefix.prefixes=/test" # Rule to remove the prefix /test when forwarding to the server
+      - "traefik.http.middlewares.strip-whoami.stripprefix.forceSlash=false" # Doesn't force slashes on host name
+      - "traefik.http.routers.whoami.middlewares=strip-whoami" # Applies the stripprefix rule
+      - "traefik.http.routers.whoami.entrypoints=web"
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie=true" # Enables sticky sessions
+      - "traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name=whoami_sticky" # Sets the cookie name
+
+```
+
+Les labels définis pour chaque container sont importants car ils permettent de configurer le container afin qu'il soit accessible via le reverse proxy Traefik.
+
+*Note* : Les containers n'ont plus de nom fixe car il sera possible d'en générer plusieurs identiques pour tester le load balancing.
+
+#### Configuration de l'image Traefik
+
+- La commande `--entrypoints.web.address` spécifie que le port 80 est à l'écoute des requêtes
+- Le port 80 est mappé sur le port 80 et sert à l'envoi des requêtes
+- Le port 8080 est mappé sur le port 8080 et sert à l'accès au dashboard `Traefik`
+
+#### Configuration de l'image apache_php
+
+- L'option `traefik.enable` active `Traefik` sur ce container
+
+- L'option `traefik.http.routers.static.rule=Host('demo.res.ch') && PathPrefix('/')` définit le nom d'hôte à emprunter pour accéder à ce container via le reverse proxy `Traefik`. Dans ce cas, il suffit d'entrer le nom d'hôte `demo.res.ch` pour accéder au serveur `Apache` statique
+- L'option `traefik.http.services.whoami-service.loadBalancer.sticky.cookie` active les sticky sessions
+- L'option `traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name` spécifie le nom du cookie de sessions pour ce serveur
+
+#### Configuration de l'image node_express
+
+- L'option `traefik.enable` active `Traefik` sur ce container
+- L'option `traefik.http.routers.dynamic.rule=Host('demo.res.ch') && PathPrefix('/api')` définit le nom d'hôte à emprunter pour accéder à ce container via le reverse proxy `Traefik`. Dans ce cas, il faut que le nom d'hôte soit `demo.res.ch/api/` pour accéder au serveur `NodeJS` dynamique
+- L'option `traefik.http.middlewares.strip-dynamic.stripprefix.prefixes=/api` permet de supprimer le préfixe `/api/` reçu par `Traefik` avant qu'il ne transmette la requête au serveur `NodeJS`. En effet, c'est important car le serveur dynamique ne possède pas de route `/api/`, il ne voit que le point d'entrée principal `/`
+- L'option `traefik.http.middlewares.strip-dynamic.stripprefix.forceSlash=false`désactive le slash forcé à la fin du préfixe
+
+- L'option `traefik.http.routers.dynamic.middlewares=strip-dynamic` active sur le serveur dynamique la règle `strip-dynamic` créée grâce aux deux options ci-dessus
+- L'option `traefik.http.services.whoami-service.loadBalancer.sticky.cookie` active les sticky sessions
+- L'option `traefik.http.services.whoami-service.loadBalancer.sticky.cookie.name` spécifie le nom du cookie de sessions pour ce serveur
+
+#### Configuration de l'image whoami
+
+Cette image est utilisée à des fins de test et de démonstration. `Whoami` est un simple serveur retournant des informations le concenrnant lorsqu'une requête `http` est envoyée. Pour le joindre il faut utilise le nom d'hôte `demo.res.ch/test`. Les rêgles concernant le préfixe `/test` sont les mêmes que pour le serveur `NodeJS` dynamique et les sticky sessions sont activées.
+
+### Lancement de plusieurs noeuds de serveurs
+
+A cet instant, la configuration de `Traefik`est au même stade que la configuration précédente avec `Apache httpd`.
+
+Pour lancer plusieurs serveurs il est mainentant possible d'utiliser la commande `docker compose up` en spécifiant le nombre d'unités d'un serveur. Par exemple, pour lancer 5 serveur statiques et 5 dynamiques il suffit d'entrer la commande :
+
+```sh
+docker compose up --scale apache_php=5 --scale node_express=5
+```
+
+## Load balancing - Round-robin vs sticky sessions
+
+### Round-robin
+
+Pour vérifier le bon fonctionnement de la répartition des requêtes, il est possible d'utiliser `curl` et le serveur `whoami`.
+
+Il suffit de lancer plusieurs instances du serveur `whoami` avec `docker compose` :
+
+```sh
+docker compose up --scale whoami=3
+```
+
+Une fois toute l'instastructure lancée, il faut envoyer des requêtes `http` avec `curl` :
+
+```sh
+curl -H Host:demo.res.ch http://demo.res.ch/test
+```
+
+En lancant plusieurs fois la requête avec la commande `curl`, l'adresse ip en retour change de façon "circulaire" (le premier serveur a répondre est le 1, ensuite le 2, ensuite le 3 et ensuite a nouveau le 1).
+
+Il y a donc bien du load balancing car les requêtes sont réparties selon les serveurs disponibles.
+
+Selon la [documentation](https://doc.traefik.io/traefik/routing/services/) de `Traefik` (voir section WRR), la répartition des requêtes se fait selon un algorithme WRR (Weighted Round Robin).
+
+### Sticky sessions
+
+Si plusieurs requêtes sont maintenant faites depuis un navigateur, l'adresse IP du serveur ne change plus. Cela est rendu possible grâce aux sticky sessions configurées dans le fichier `docker-compose` pour chaque serveur.
+
+Il est possible de voir le cookie de session avec les outils de développement dans le navigateur. Le cookie possède l'adresse IP du container associé à l'échange avec le client.
+
+## Dynamic cluster management
+
+## Management UI
+

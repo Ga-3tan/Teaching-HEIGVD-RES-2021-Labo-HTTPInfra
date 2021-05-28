@@ -1,0 +1,42 @@
+version: "3.3"
+
+services:
+
+  traefik:
+    image: "traefik:latest"
+    container_name: "traefik"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80" # Port for incoming requests on reverse proxy
+    ports:
+      - "80:80" # Port for requests
+      - "8080:8080" # Port for Traefik dashboard
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  apache_static:
+    image: "res/apache_php"
+    labels:
+      - "traefik.enable=true" # Enables Traefik reverse proxy
+      - "traefik.http.routers.static.rule=Host(`demo.res.ch`) && PathPrefix(`/`)" # When Host header has the prefix /
+      - "traefik.http.routers.static.entrypoints=web"
+
+  express_dynamic:
+    image: "res/node_express"
+    labels:
+      - "traefik.enable=true" # Enables Traefik reverse proxy
+      - "traefik.http.routers.dynamic.rule=Host(`demo.res.ch`) && PathPrefix(`/api`)" # When Host header has the prefix /api
+      - "traefik.http.middlewares.strip-dynamic.stripprefix.prefixes=/api" # Rule to remove the prefix /api when forwarding to the node server
+      - "traefik.http.middlewares.strip-dynamic.stripprefix.forceSlash=false" # Doesn't force slashes on host name
+      - "traefik.http.routers.dynamic.middlewares=strip-dynamic" # Applies the stripprefix rule
+      - "traefik.http.routers.dynamic.entrypoints=web"
+
+# Container used to test and demonstrate Traefik load balancing
+  whoami:
+    image: "traefik/whoami"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
+      - "traefik.http.routers.whoami.entrypoints=web"

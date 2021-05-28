@@ -2,7 +2,7 @@ $(function() {
     console.log("Loading emoji");
     
     function loadEmoji() {
-        $.get("/api/fun/emoji", function(emoji) {
+        $.get("/api/emoji", function(emoji) {
             console.log(emoji);
             $(".emoji").text(emoji);
         });

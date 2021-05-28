@@ -1,68 +1,98 @@
 # RES | Laboratoire infrastructure HTTP
 
----
+## 1 - Serveur statique avec Apache httpd
 
-## 1. Mise en place d'un serveur httpd avec Docker
+### Récupération et lancement de l'image Docker Apache httpd avec php
 
-### Récupération d'une image docker httpd apache 
+L'image Docker httpd avec php a été récupérée sur [Docker hub](https://hub.docker.com/_/php/) à l'adresse de l'image php, qui offre une version d'Apache httpd avec php configuré.
 
-on utilise l'image docker officielle de php-apache depuis docker hub
+#### Lancement sans image Docker
 
-##### on créer le Dockerfile suivant :
+Un premier lancement de l'image a été fait pour tester le container.  La commande suivante permet de lance le container sans image docker :
+
+```sh
+docker run -d -p 9090:80 php:7.2-apache
+```
+
+Le port 80, ouvert dans le container a été mappé sur le port 9090 de la machine hôte.
+
+Il est donc possible de se connecter au container en telnet sur l'adresse 127.0.0.1:9090
+
+#### Lancement avec image Docker
+
+Pour lancer l'image, un Dockerfile a été crée avec les instructions suivantes :
 
 ```dockerfile
 FROM php:7.2-apache
 COPY content/ /var/www/html/
 ```
 
-- la première ligne spécifie l'image à utiliser
+- La première ligne spécifie l'image à utiliser
 
-- la deuxième ligne va copier tous ce qu'il y a dans `content/` pour dans le dossier `html/` qui se trouve à `/var/www` dans le container
-  - le dossier content copié dans le dossier html sera la source de notre serveur où on mettra tous nos fichier html
+- La deuxième ligne copie le contenu du dossier `content/` dans le dossier `/var/www/html/` à l'intérieur du container
+  - Le dossier `content/` contient donc les fichiers source du site web statique
 
-(parler des fichiers de configurations: `/etc/apache2/sites-available/000-default.conf` => `DocumentRoot : chemin de base du serveur` (à modifier si on change la ligne COPY du Dockerfile, par défaut `/var/www/html/`))
+##### Build de l'image docker du serveur
 
-### Build de l'image docker du serveur
-
-##### commande de build : 
+Commande de build à exécuter dans le dossier du Dockerfile : 
 
 ```bash
 docker build -t res/apache_php .
 ```
 
-- le `-t [tag]` spécifie le nom (tag) de l'image à construite
+- le `-t [tag]` spécifie le nom (tag) de l'image à construire
 
-- le `.` spécifie qu'il va construire depuis le fichier courant
+- le `.` spécifie que l'image sera construite depuis le dossier courant
 
-Cette commande se trouve dans un fichier `build-image.sh` au même niveau que le Dockerfile
+Cette commande se trouve dans un fichier `build-image.sh` au même niveau que le Dockerfile.
 
-### Run du serveur dans un container
+##### Run de l'image du serveur dans un container
 
-##### commande de run : 
+Commande à lancer pour démarrer un container : 
 
 ```bash
 docker run -d -p 9090:80 res/apache_php
 ```
 
 - `-d` permet de lancer le serveur en arrière plan
-- `-p 9090:80` permet de mapper le port 9090 du host au port TCP 80 du container
-- `res/apache_php` c'est le tag/nom de l'image depuis lequel on créer un container
+- `-p 9090:80` permet de mapper le port 9090 du host au port 80 du container
+- `res/apache_php` correspond au tag/nom de l'image depuis laquelle on crée un container
 
-Cette commande se trouve dans un fichier `run-container.sh` au même niveau que le Dockerfile
+Cette commande se trouve dans un fichier `run-container.sh` au même niveau que le Dockerfile.
 
-##### Pour accéder au bash du container, on peut utiliser la commande :
+Pour ouvrir un terminal à l'intérieur du container, il est possible d'utiliser la commande :
 
 ```bash
 docker exec -it [nomDuContainer] /bin/bash
 ```
 
-## 2. Serveur HTTP dynamique avec express.js
+### Copie ou lien avec un dossier du host
 
-### Récupération d'une image docker node 14.17.0
+Le serveur web apache qui tourne dans le container affiche le contenu html présent dans le dossier `/var/www/html`.
 
-on utilise l'image docker officielle de node depuis docker hub
+Il est possible de placer des fichiers dans ce dossier depuis la machine hôte de deux façons différentes.
 
-##### on créer le Dockerfile suivant :
+#### La copie d'un dossier local
+
+La première variante consiste à copier tout le contenu d'un dossier local dans le dossier `/var/www/html` du container **à sa création**. Cela est fait dans le dockerfile avec la ligne :
+
+```
+COPY content/ /var/www/html/
+```
+
+Le contenu une fois copié ne sera pas mis à jour en cas de  modification dans le dossier local, et en cas de redémarrage du  container, toutes les modifications faites aux fichiers html à  l'intérieur du container seront perdues !
+
+#### Monter un volume dans le container sur un dossier local
+
+La deuxième variante consiste à monter un volume à l'intérieur du container dans le dossier `/var/www/html` pointant sur un dossier local de la machine hôte. Cela peut être fait lors de la commande run avec l'option `--volume`.
+
+Cela permet de modifier en direct les fichiers dans le dossier local  et ceux-ci seront modifiés dans le dossier du container. Les  modifications ne seront pas perdues à la fermeture du container.
+
+## 2 - Serveur HTTP dynamique avec express.js
+
+### Récupération d'une image docker NodeJS 14.17.0
+
+Un dockerfile avec une image Node.js officielle provenant de Docker Hub à été crée :
 
 ```dockerfile
 FROM node:14.17.0
@@ -70,13 +100,13 @@ COPY src /opt/app
 CMD ["node", "/opt/app/index.js"]
 ```
 
-- la première ligne spécifie l'image à utiliser, l'image de node 14.17.0 (latest)
-- la deuxième ligne va copier tous ce qu'il y a dans `src` pour dans le dossier `/opt/app`
-- la troisième ligne va exécuter la commande `node /opt/app/index.js` qui va lancer le script index.js au démarrage du container (`npm start`)
+- La première ligne spécifie l'image à utiliser, l'image de node 14.17.0 (latest)
+- La deuxième ligne copie le contenu du dossier `src`  dans le dossier `/opt/app`
+- La troisième ligne exécute la commande `node /opt/app/index.js` à l'intérieur du container, ce qui va lancer le script index.js au démarrage de ce dernier.
 
 ### Création d'un projet node.js dans src
 
-On commence par initialiser un projet node.js avec :
+L'initialisation d'un projet NodeJS peut se faire via la commande :
 
 ```bash
 npm init
@@ -88,9 +118,9 @@ Puis installer la dépendance node.js *chance* avec :
 npm install --save chance
 ```
 
-qui va créer une entrée "dependance" dans package.json ainsi qu'un dossier node_module qui contiendra toutes les dépendances (il est lourd).
+Cela crée une entrée (une dependance) dans `package.json` ainsi qu'un dossier `node_modules` qui contiendra toutes les dépendances. Ce dossier ne doit pas être mis sur Github car il est assez lourd.
 
-On créer notre fichier index.js et on y fait un simple programme qui affiche un nom aléatoire avec *chance* (ceci est juste un test pour voir si la dépendance et le serveur fonctionnent) :
+Il reste à créer un fichier index.js dans lequel il est possible d'écrire un simple programme qui affiche un nom aléatoire avec le module `chance` installé précédemment (ceci est juste un test pour voir si la dépendance et le serveur fonctionnent) :
 
 ```javascript
 var Chance = require('chance')
@@ -99,35 +129,38 @@ var chance = new Chance();
 console.log("Bonjour " + chance.name());
 ```
 
-et on l'exécute dans le terminal avec :
+Finalement, ce script peut être lancé avec la commande :
 
-```bash
+```sh
 node index.js
 ```
 
-Lorsque l'ont se connecte, cela va retourner : "Bonjour  [un nom au hasard]" .
+Au moment de la connexion au serveur, cela va retourner : 
 
-On va ensuite tester l'exécution du script dans le container docker en liant le port 3000 du container avec le port 8080 du host :
+```
+Bonjour  [nom au hasard]
+```
 
-```bash
+Il faut maintenant tester l'exécution du script a l'intérieur du container, pour ce faire, il suffit de build et lancer l'image NodeJS :
+
+```sh
 docker build -t res/node_express .
-
 docker run -p 8080:3000 res/node_express
 ```
 
-cela va afficher le même résultat que l'étape précédente mais depuis le container.
+Cela va afficher le même résultat que l'étape précédente mais depuis le container.
 
 ### Application express avec Docker
 
-Installation de Express.js dans le projet node avec :
+Installer la dépendance `express.js` grâce à la commande :
 
 ```bash
 npm install --save express
 ```
 
-dans notre index.js on ajoute :
+dans le fichier index.js il faut ajouter :
 
-- le serveur express.js :
+- Le serveur express.js :
 
 ```javascript
 var express = require('express');
@@ -159,7 +192,7 @@ app.get('/', function(req, res) {
 });
 ```
 
-Ces end-points font : 
+Voici le rôle de chaque end-point :
 
 `/knock-knock` retourne une blague du type *toc-toc qui est là*
 
@@ -173,18 +206,22 @@ app.listen(3000, function() {
 });
 ```
 
-*Note* : le end-point `/` doit se trouver après les autres sinon il sera toujours pris.
+*Note* : Pour les étapes suivantes du laboratoire, le point d'entrée sera `/api/`
 
-### 3. Reverse proxy
+## 3 - Reverse proxy avec Apache (configuration statique)
 
-- On créer 2 container : le `express_dynamic` et le `apache_static`, qui seront nos deux serveurs :
+L'utilisation du mode reverse proxy du serveur apache permet de n'avoir qu'un seul point d'entrée dans l'infrastructure lors des  requêtes HTTP. Dépendant les chemins fournis aux requêtes HTTP, le  reverse proxy va diriger la requête vers le serveur web approprié.
+
+### Récupération des adresses IP des containers
+
+Création de 2 containers : le `express_dynamic` et le `apache_static`, qui seront les deux serveurs atteignables via le reverse proxy :
 
 ```bash
 $ docker run -d --name apache_static res/apache_php
 $ docker run -d --name express_dynamic res/node_express
 ```
 
-- On cherche leur adresse IP :
+Il est possible d'obtenir leur adresse ip grâce à la commande `docker inspect` :
 
 ```bash
 $ docker inspect apache_static | grep -i ipaddress
@@ -197,17 +234,18 @@ $ docker inspect express_dynamic | grep -i ipaddress
                     "IPAddress": "172.17.0.4",
 ```
 
-On observe donc qu'on a notre serveur statique `apache_static` qui tourne à l'adresse `172.17.0.3` sur le port `80`
+Le serveur statique `apache_static` tourne à l'adresse `172.17.0.3` sur le port `80`.
 
-Et notre api dynamique `express_dynamic` qui tourne à l'adresse `172.17.0.4` sur le port `3000`
+L'API dynamique `express_dynamic` tourne à l'adresse `172.17.0.4` sur le port `3000`.
 
-*Note* : attention à ne pas refermer ces containers, sinon leur adresse IP ne sera plus la même (car Docker les alloue dynamiquement). Cela rend notre système très fragile car il suffit que Docker décide d'allouer une adresse différente à l'un de serveur pour qu'il y ait des problèmes.
+*Note* : attention à ne pas refermer ces containers, sinon leur adresse IP ne sera plus la même (car Docker les alloue dynamiquement). Cela rend le système  fragile car il suffit que Docker décide d'allouer une adresse différente à l'un de serveur pour qu'il y ait des problèmes dans la configuration du reverse proxy.
 
-Maintenant il faut créer le serveur reverse proxy pour pouvoir aiguiller les requêtes sur les serveurs respectifs, pour cela on va créer une nouvelle image `res/apache_rp`  avec le Dockerfile suivant :
+### Création du dockerfile pour le reverse proxy
 
-```dockerfile
+L'image du reverse proxy peut être créée a partir d'un dockerfile assez simple :
+
+```
 FROM php:7.2-apache
-
 COPY conf/ /etc/apache2
 
 RUN a2enmod proxy proxy_http
@@ -216,56 +254,112 @@ RUN a2ensite 000-* 001-*
 EXPOSE 80
 ```
 
-Dans ce Dockerfile on créer une image à partir d'un serveur `apache php (ver 7.2)` et on va copier les configurations du dossier `sites-available` (plus précisément les fichier `000-default.conf` et `001-reverse-proxy.conf`) dans notre container.
+Dans le même dossier que le dockerfile doit se trouver un dossier `conf` contenant les fichiers `.conf` de configuration du site par défaut et du reverse proxy  (qui sont expliquées au point suivant) . Ces fichiers seront copiés dans le dossier `/etc/apache2/` de l'image à sa création.
 
-On va ensuite configurer le proxy dans `001-reverse-proxy.conf` de la façon suivante :
+Le commandes activant les modules proxy sont ensuite exécutées avec la commande `a2enmod`, puis les deux sites sont activés sur le serveur avec la commande `a2ensite`.
+
+Le port 80 est a l'écoute de requêtes HTTP entrantes.
+
+### Configuration du reverse proxy sur Apache httpd
+
+Dans le dossier `/etc/apache2/` du container se trouve toute la configuration du serveur apache. Dans ce dossier se trouvent plusieurs sous-dossiers :
+
+- sites-available -> Contient la liste des configurations de sites disponibles pour le serveur
+- sites-enabled -> Contient la liste des sites actuellement activés sur le serveur
+
+Un site est représenté par un fichier `.conf` contenant une balise `<VirtualHost>`. Pour activer le mode reverse proxy il faut créer un fichier `.conf` et placer divers éléments dans la balise `<VirtualHost>` :
+
+- ServerName `<nom>` -> Le nom de l'en-tête host devant être fournie dans les requêtes HTTP
+- ProxyPass `<route>` `<to>` -> Lorsque le serveur reçoit la route `<route>` il redirige la requête vers l'adresse `<to>`
+- ProxyPassReverse `<route>` `<to>` -> Même chose que pour ProxyPass mais dans l'autre sens
+
+Il faut ensuite configurer le proxy dans `001-reverse-proxy.conf` de la façon suivante :
 
 ```xml
 <VirtualHost *:80>
     ServerName demo.res.ch
     
-    #ErrorLog ${APACHE_LOG_DIR}/error.log
-    #CustomLog ${APACHE_LOG_DIR}/access.log combined
+    ProxyPass "/api/fun/" "http://172.17.0.4:3000/"
+    ProxyPassReverse "/api/fun/" "http://172.17.0.4:3000/"
     
-    ProxyPass "/api/fun/" "http://172.17.0.3:3000/"
-    ProxyPassReverse "/api/fun/" "http://172.17.0.3:3000/"
-    
-    ProxyPass "/" "http://172.17.0.2:80/"
-    ProxyPassReverse "/" "http://172.17.0.2:80/"
+    ProxyPass "/" "http://172.17.0.3:80/"
+    ProxyPassReverse "/" "http://172.17.0.3:80/"
 </VirtualHost>
 ```
 
-Dans ce fichier, on ajoute le nom du serveur qui servira pour être reconnu par l'en-tête http `Host`. Pour l'instant on va garder les Log commenté à cause d'une erreur de l'image, on y reviendra plus tard.
+Dans ce fichier, il faut ajouter le nom du serveur qui servira à être reconnu par l'en-tête http `Host`.
 
-On configure ensuite le ProxyPass et ProxyPassReverse qui vont servir d'aiguillage vers nos deux serveurs. On l'a configuré de cette façon :
+Il faut ensuite configurer le champs `ProxyPass` et `ProxyPassReverse` qui serviront d'aiguillage vers les deux serveurs :
 
-- Si la requêtes commence par /api/fun/ elle va être redirigée vers le serveur `express_dynamic` à l'adresse `http://172.17.0.3:3000/`
-  - on pourra ainsi faire les requêtes `/knock-knock` pour avoir une blague ou jouer à pile ou face avec `/coin-flip/[heads, tails]`.
-- Si celle-ci commence n'est pas `/api/fun/` elle va être redirigée vers le serveur `apache_static`  à l'adresse `http://172.17.0.2:80/`
-  - on pourra ainsi voir la page web retournée par le serveur statique.
+- Si la requête contient le préfixe `/api/fun/` elle sera redirigée vers le serveur `express_dynamic` à l'adresse `http://172.17.0.4:3000/`
+  - Il sera alors possible de faire les requêtes `/knock-knock` pour avoir une blague ou jouer à pile ou face avec `/coin-flip/[heads, tails]`.
+- Si la requête contient le préfixe `/` elle sera redirigée vers le serveur `apache_static`  à l'adresse `http://172.17.0.3:80/`
+  -  La page web `index.html` sera alors retournée par le serveur statique.
 
-*Note* : pour le `000-default.conf`, on laisse l'intérieur de VirtualHost vide.
+*Note* : pour le fichier `000-default.conf`, il suffit de laisser l'intérieur de VirtualHost vide (cela force le nom de domaine aux requêtes pour l'accès aux deux serveurs.
 
-Il faut maintenant faire en sorte que notre browser utilise l'en-tête `Host: demo.res.ch` lorsqu'on essaie d'y accéder. Pour cela il faut configurer le fichier hosts (sur Windows il se trouve au chemin : `C:\Windows\System32\drivers\etc`) et y rajouter la ligne : `127.0.0.1 demo.res.ch`.
+Ne pas oublier d'inclure les modules nécessaires pour que le serveur Apache puisse faire du reverse proxy, puis activer le site :
 
-Maintenant il est possible d'accéder de faire nos requêtes sur le reverse proxy simplement un allant sur demo.res.ch  depuis le navigateur.
-
-### 4. AJAX avec JQuery
-
-On commence tout d'abord à ajouter VIM à toutes les images en ajoutant la ligne suivante dans les Dockerfile :
-
-```dockerfile
-RUN apt-get update && \
-    apt-get install -y vim
+```
+a2enmod proxy
+a2enmod proxy_http
+a2ensite <nomDuFichierSite>
+service apache2 restart
 ```
 
-Cela sera utile pour éditer les fichiers et scripts directement depuis le container en cours. Cependant il est préférable de faire les changements en local car ceux fais dans le containers ne seront pas sauvegardé si on tue et nettoie l'image.
+Finalement, il faut faire en sorte que le browser utilise l'en-tête `Host: demo.res.ch` lors de l'accès au proxy. Pour cela il faut configurer le fichier hosts (`/etc/hosts` sur Linux et `C:\Windows\System32\drivers\etc\hosts` sur Windows) et y ajouter la ligne : `127.0.0.1 demo.res.ch`.
 
-Après avoir rebuild toutes les images, on va passer aux requêtes Ajax.
+Les deux serveurs sont maintenant accessibles via l'adresse et le  port du proxy uniquement et peuvent être sélectionnés selon la route entrée dans la requête HTTP.
 
-On veut créer un script javascript qui va remplacer un champ du site par une réponse de l'API périodiquement.
+### Etat de l'infrastructure
 
-Pour cela, on créer un fichier `res-lab-script.js`dans le dossier `content/assets/js` du serveur statique qui contiendra la requêtes Ajax.
+L'infrastructure est maintenant composée de trois serveurs distincs :
+
+- res/apache_static -> Serveur statique de l'étape 1 du laboratoire
+- res/express_dynamic -> Serveur Node.js et express.js dnamique de l'étape 2 du laboratoire
+- res/apache_rp -> Reverse proxy Apache configuré pour rediriger vers res/apache_static ou res/express_dynamic selon l'en-tête `Host:` des requêtes
+
+Le seul container ayant besoin d'un mappage de ports est le reverse proxy car il est le seul point d'entrée vers les autres serveurs de  l'infrastructure.
+
+### Le proxy comme seul point d'entrée
+
+Dans cette nouvelle infrastructure, seul le proxy peut être utilisé  pour joindre les deux autres serveurs car il est le seul ayant un port  mappé sur la machine hôte.
+
+Le proxy va rediriger les requêtes HTTP **à l'intérieur du réseau de la machine Docker** en fonction du champ `Host:` fourni dans l'en-tête. Cet en-tête `Host:` **doit** être `demo.res.ch` pour que le proxy retourne les bonnes représentations de ressources. Si le `Host:` n'est pas bon, la page retournée est une erreur 403 (Forbidden) car la  requête n'est pas envoyée sur le bon nom de site. Pour cette  infrastructure, un en-tête `/` redirige vers le site statique tandis que `/api/` redirige vers le site express.js dynamique.
+
+### Configuration pas optimale et fragile
+
+Un gros soucis avec cette configuration Docker et ces trois serveurs est que le fichier de configuration dans le proxy possède des adresses  IP écrites en dur pour la redirection. Or, les serveurs statiques et  dynamiques peuvent ne pas avoir la même adresse IP car cela est défini  automatiquement par docker à la création du container.
+
+Dans le cas ou les adresses IP ne sont pas les suivantes :
+
+| Image du container  | Adresse IPv4        |
+| ------------------- | ------------------- |
+| res/apache_static   | 172.17.0.3          |
+| res/express_dynamic | 172.17.0.4          |
+| res/apache_rp       | N'importe la quelle |
+
+Le proxy va rediriger les requêtes vers la mauvais adresse IP et il y aura des erreurs.
+
+Il faudrait pouvoir s'assurer que les adresses des deux serveurs web soient fixes pour éviter ce genre de problème.
+
+## 4 - Requêtes AJAX avec JQuery
+
+### Mise à jour des images
+
+Pour mettre plus de manipulations à l'intérieur des containers, il  est pratique d'ajouter les commandes suivantes au Dockerfile qui vont  installer automatiquement l'outil `vim` pour effectuer des modifications sur les ficheirs des containers.
+
+```dockerfile
+RUN apt-get update && apt-get install -y vim
+```
+
+Cela est utile pour éditer les fichiers et scripts directement depuis le container en cours. Cependant il est préférable de faire les changements en local car ceux fais dans le containers ne sont pas sauvegardés à la fermeture du container.
+
+### Création d'un script JS et modification dynamique du DOM avec AJAX
+
+L'objectif est de créer un script `javascript` qui va remplacer un champ du site statique par une réponse de l'API, périodiquement.
+
+Pour cela, il faut commencer par créer un fichier `res-lab-script.js` dans le dossier `content/assets/js` du serveur statique. Ce fichier effectuera les requêtes `AJAX` vers le serveur dynamique.
 
 ```javascript
 $(function() {
@@ -283,17 +377,13 @@ $(function() {
 });
 ```
 
-Un appel à Ajax se fait avec `$`. 
+La fonction asynchrone `loadEmoji()` effectue la requête `GET` avec `$.get(uri, callback)`. Ici, la requête demande un emoji `ASCII` à l'API et remplacer le contenu de la balise de classe `emoji` de la page HTML : `<h6 class="emoji">¯\_(ツ)_/¯</h6>`.
 
-On définit la fonction asynchrone `loadEmoji()` qui fait la requête `GET` avec `$.get(uri, callback)`, ici la requête va demander un emoji ASCII à l'API et remplacer le contenu de la balise de classe `emoji` de la page HTML : `<h6 class="emoji">¯\_(ツ)_/¯</h6>`.
+On fait un appel de la fonction puis on ajoute un appel périodique à la fonction toutes les 5 secondes.
 
-On fait un appel de la fonction puis on ajoute un appel périodique de la requêtes, toutes les 5 secondes.
+Le bon fonctionnement de la requête peut être observé depuis l'onglet network des devtools du navigateur web au chargement de la page `index.html`.
 
-On peut voir le bon fonctionnement de la requêtes depuis l'onglet network des devtools du browser.
-
-![image-20210522164402756](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210522164402756.png)
-
-*note* : un end-point `/emoji` a été rajouté au serveur node express, il utilise le package `random-jpn-emoji` pour renvoyer un simple emoji ASCII random. Il se présente comme suit :
+*Note* : Un end-point `/emoji` a été ajouté au serveur node express, il utilise le package `random-jpn-emoji` pour envoyer un simple emoji ASCII au hasard. Il se présente comme suit :
 
 ```javascript
 ...
@@ -324,11 +414,25 @@ app.get('/emoji', function(req, res) {
 ...
 ```
 
-### 5. Configuration dynamique du reverse proxy
+### Pourquoi la démo ne fonctionnerait pas sans reverse proxy
 
-Pour cette partie on va utiliser la fonctionnalité de Docker : le DNS intégré. Docker permet à tous les containers connectés à un `user defined network` de s'identifier entre eux par leur nom. Donc au lieu d'utiliser l'adresse IP il suffira de spécifier le nom du container.
+Le rôle du reverse proxy est de reçevoir toutes les requêtes dirigées vers le serveur `Apache` statique ou `NodeJS` dynamique.
 
-On va tout d'abord changer les adresses IP du `001-reverse-proxy.conf` par les noms des containers :
+Premièrement, il n'est pas possible de joindre les serveurs `Apache` ou `NodeJS` directement car il n'ont pas de port disponible en dehors du réseau  docker. Le seul port disponible est celui du reverse proxy et cela  implique donc une seule entrée possible.
+
+Ensuite, le nom de host à respecter est défini par le reverse proxy et doit être `demo.res.ch` pour que la redirection se fasse correctement.
+
+Il n'est donc pas possible de contacter directement les serveurs `Apache` et `NodeJS` sans passer par le reverse proxy.
+
+## 5 - Configuration dynamique du reverse proxy
+
+Le but de cette partie est de résoudre le problème concernant les adresses IP des containers `Apache` et `NodeJS` afin que le reverse proxy gère ces dernières de façon dynamique.
+
+Pour ce faire, il est possible d'utilise Docker Compose pour lancer  toutes les images et créer un réseau dans lequel les images se  connaissent par leur nom d'hôte. Grâce à cela, le reverse proxy peut  utiliser les noms d'hote des serveurs Apache et NodeJS dans sa configuration.
+
+En effet, selon la documentation Docker, si plusieur containers se trouvent dans un même réseau **définit manuellement par l'utilisateur**, ils peuvent se contacter grâce à leur nom d'hôte qui est le nom du  container docker. Il n'y a donc plus besoin de conaître l'adresse IP exacte des serveurs, le `DNS` intégré à docker se chargera de traduire les noms d'hôte.
+
+Il faut donc commencer par changer les adresses IP du `001-reverse-proxy.conf` par les noms des containers :
 
 ```xml
 <VirtualHost *:80>
@@ -342,17 +446,17 @@ On va tout d'abord changer les adresses IP du `001-reverse-proxy.conf` par les n
 </VirtualHost>
 ```
 
-Ici le serveur back-end a le nom node_express et le serveur front-end a le nom apache_php.
+Ici le serveur back-end possède le nom `node_express` et le serveur front-end `apache_php`.
 
 Il suffit ensuite de créer un `user defined network` et de `run` les 3 serveurs sur ce même network avec l'option `--net [networkName]`.
 
-Pour automatiser cette partie, on va utiliser `docker-compose` pour lancer les 3 serveurs ainsi que le network (si inexistant) en même temps.
+Pour automatiser cette partie, Il est possible d'utiliser `docker-compose` pour lancer les 3 serveurs ainsi que le network (si inexistant) en même temps.
+
+Il faut créer un ficheir `docker-compose.yaml` dans lequel on place les containers à créer et le réseau dans lequel ils se trouveront :
 
 ```yaml
 version: "3.1"
-
 services:
-
     apache_rp:
         image: res/apache_rp:latest
         container_name: apache_rp
@@ -360,30 +464,25 @@ services:
             - "8080:80"
         networks:
             - res-net
-
     apache-php:
         image: res/apache_php:latest
         container_name: apache_php
         networks:
             - res-net
-
     node-express:
         image: res/node_express:latest
         container_name: node_express
         networks:
             - res-net
-
 networks:
     res-net:
 ```
 
-Dans ce fichier docker-compose, on créer 3 services qui correspondent à nos serveurs. Pour chaque service on spécifie le nom de l'image voulue, le nom du container (doit être le même que dans le fichier de configuration du reverse-proxy) ainsi que le nom du networks sur lequel il sera connecté.
+Dans ce fichier docker-compose, 3 services sont créés. Ils correspondent aux 3 serveurs. Pour chaque service il faut spécifier le nom de l'image voulue, le nom du container (doit être le même que dans le fichier de configuration du reverse-proxy) ainsi que le nom du network dans lequel il se trouvera (dans ce cas, c'est le réseau `res-net`, défini à la fin du fichier).
 
-À la fin on créer un network res-net qui sera utilisé pour nos containers.
+Pour lancer tous les containers, il suffit d'utiliser la commande suivante dans le dossier du fichier `docker-compose.yaml ` :
 
-Pour terminer il suffit juste de démarrer les services en lançant le fichier `docker-compose.yml` avec la commande :
-
-```bash
-$ docker-compose up
+```sh
+docker compose up
 ```
 

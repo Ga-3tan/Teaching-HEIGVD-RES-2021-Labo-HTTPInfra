@@ -655,7 +655,7 @@ Il est possible de voir le cookie de session avec les outils de développement d
 
 Grâce au reverse proxy `Traefik`, dès qu'un container est crée ou supprimé, le load balancing s'adapte automatiquement.
 
-### Exemple
+### Exemple 1
 
 Lancer l'infrastructure avec un seul serveur `whoami` :
 
@@ -676,6 +676,32 @@ Effectuer a nouveau des requêtes avec `curl`, cette fois les requêtes sont ré
 <img src="README/img/example4.png" alt="cookie" style="zoom:50%;" />
 
 Le nouveau serveur `whoami` a donc bien été détecté par `Traefik` et est utilisé pour le load balancing.
+
+### Exemple 2
+
+Lancer l'infrastructure avec un deux serveurs `whoami` :
+
+![image-20210529122820150](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529122820150.png)
+
+Lorsqu'on fait 2 requêtes avec Postman (en désactivant les cookies, pour éviter les sticky-session) :
+
+![image-20210529123009571](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123009571.png)
+
+![image-20210529123105688](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123105688.png)
+
+On remarque les 2e IP retournés sont différents. Traefik utilise bien les 2 serveur `whoami`.
+
+Maintenant on supprime un serveur `whoami` :
+
+![image-20210529123249570](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123249570.png)
+
+On lance deux requêtes sur `whoami` :
+
+![image-20210529123458052](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123458052.png)
+
+![image-20210529123520436](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123520436.png)
+
+On remarque que le 2e IP des deux réponses sont les mêmes, donc Traefik a bien réagis à la suppression du 2e serveur `whoami` et n'utilise que le premier.
 
 ## Management UI
 

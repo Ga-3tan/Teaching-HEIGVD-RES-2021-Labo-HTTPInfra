@@ -416,19 +416,15 @@ app.get('/emoji', function(req, res) {
 
 ### Pourquoi la démo ne fonctionnerait pas sans reverse proxy
 
-Le rôle du reverse proxy est de reçevoir toutes les requêtes dirigées vers le serveur `Apache` statique ou `NodeJS` dynamique.
+Pour des raisons de sécurité, un mécanisme nommé Cross-Origin Ressource Sharing (CORS) vérifie que les réponses de requêtes envoyées par le navigateur viennent toujours du même endroit. Par exemple, lorsque le navigateur demande la page `index.html` au serveur statique et que un script `JS` demande une ressource au serveur dynamique, le mécanisme CORS exige que la réponse du serveur dynamique vienne de la même origine que le serveur statique.
 
-Premièrement, il n'est pas possible de joindre les serveurs `Apache` ou `NodeJS` directement car il n'ont pas de port disponible en dehors du réseau  docker. Le seul port disponible est celui du reverse proxy et cela  implique donc une seule entrée possible.
-
-Ensuite, le nom de host à respecter est défini par le reverse proxy et doit être `demo.res.ch` pour que la redirection se fasse correctement.
-
-Il n'est donc pas possible de contacter directement les serveurs `Apache` et `NodeJS` sans passer par le reverse proxy.
+Le reverse proxy permet d'assurer ce mécanisme car toutes les requêtes passent par lui et les mises à jour dynamiques sur la page du serveur statique peuvent se faire sans problème.
 
 ## 5 - Configuration dynamique du reverse proxy
 
 Le but de cette partie est de résoudre le problème concernant les adresses IP des containers `Apache` et `NodeJS` afin que le reverse proxy gère ces dernières de façon dynamique.
 
-Pour ce faire, il est possible d'utilise Docker Compose pour lancer  toutes les images et créer un réseau dans lequel les images se  connaissent par leur nom d'hôte. Grâce à cela, le reverse proxy peut  utiliser les noms d'hote des serveurs Apache et NodeJS dans sa configuration.
+Pour ce faire, il est possible d'utiliser Docker Compose pour lancer toutes les images et créer un réseau dans lequel les images se  connaissent par leur nom d'hôte. Grâce à cela, le reverse proxy peut  utiliser les noms d'hôte des serveurs `Apache` et `NodeJS` dans sa configuration.
 
 En effet, selon la documentation Docker, si plusieur containers se trouvent dans un même réseau **définit manuellement par l'utilisateur**, ils peuvent se contacter grâce à leur nom d'hôte qui est le nom du  container docker. Il n'y a donc plus besoin de conaître l'adresse IP exacte des serveurs, le `DNS` intégré à docker se chargera de traduire les noms d'hôte.
 

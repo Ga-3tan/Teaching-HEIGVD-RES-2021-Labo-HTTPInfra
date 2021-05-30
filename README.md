@@ -323,7 +323,7 @@ Le seul container ayant besoin d'un mappage de ports est le reverse proxy car il
 
 ### Le proxy comme seul point d'entrée
 
-Dans cette nouvelle infrastructure, seul le proxy peut être utilisé  pour joindre les deux autres serveurs car il est le seul ayant un port  mappé sur la machine hôte.
+Dans cette nouvelle infrastructure, seul le proxy peut être utilisé  pour joindre les deux autres serveurs car il est le seul ayant un port  mappé sur la machine hôte. Il est donc impossible d'accéder au serveur statique ou dynamique depuis un réseau autre que celui de docker tant avec des requêtes manuelles que des requêtes via le navigateur.
 
 Le proxy va rediriger les requêtes HTTP **à l'intérieur du réseau de la machine Docker** en fonction du champ `Host:` fourni dans l'en-tête. Cet en-tête `Host:` **doit** être `demo.res.ch` pour que le proxy retourne les bonnes représentations de ressources. Si le `Host:` n'est pas bon, la page retournée est une erreur 403 (Forbidden) car la  requête n'est pas envoyée sur le bon nom de site. Pour cette  infrastructure, un en-tête `/` redirige vers le site statique tandis que `/api/` redirige vers le site express.js dynamique.
 

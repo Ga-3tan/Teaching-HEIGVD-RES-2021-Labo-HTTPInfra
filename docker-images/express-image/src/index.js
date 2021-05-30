@@ -28,7 +28,11 @@ app.get('/emoji', function(req, res) {
 });
 
 app.get('/knock-knock', function(req, res) {
-    res.send(knockknock());
+
+	var listJokes = {knock1: knockknock(),
+					 knock2: knockknock()};
+
+    res.send(listJokes);
 });
 
 app.get('/coin-flip/:face', function(req, res) {

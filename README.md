@@ -677,27 +677,27 @@ Le nouveau serveur `whoami` a donc bien été détecté par `Traefik` et est uti
 
 Lancer l'infrastructure avec un deux serveurs `whoami` :
 
-![image-20210529122820150](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529122820150.png)
+![image-20210529122820150](README/img/image-20210529122820150.png)
 
 Lorsqu'on fait 2 requêtes avec Postman (en désactivant les cookies, pour éviter les sticky-session) :
 
-![image-20210529123009571](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123009571.png)
+![image-20210529123009571](README/img/image-20210529123009571.png)
 
-![image-20210529123105688](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123105688.png)
+![image-20210529123105688](README/img/image-20210529123105688.png)
 
-On remarque les 2e IP retournés sont différents. Traefik utilise bien les 2 serveur `whoami`.
+On remarque les 2e IP retournés sont différents. `Traefik` utilise bien les 2 serveur `whoami`.
 
 Maintenant on supprime un serveur `whoami` :
 
-![image-20210529123249570](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123249570.png)
+![image-20210529123249570](README/img/image-20210529123249570.png)
 
 On lance deux requêtes sur `whoami` :
 
-![image-20210529123458052](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123458052.png)
+![image-20210529123458052](README/img/image-20210529123458052.png)
 
-![image-20210529123520436](C:\Users\gaeta\Documents\HEIGVD\.BA4\RES\labos\Teaching-HEIGVD-RES-2021-Labo-HTTPInfra\img\README\image-20210529123520436.png)
+![image-20210529123520436](README/img/image-20210529123520436.png)
 
-On remarque que le 2e IP des deux réponses sont les mêmes, donc Traefik a bien réagis à la suppression du 2e serveur `whoami` et n'utilise que le premier.
+On remarque que la 2e IP des deux réponses sont les mêmes, donc `Traefik` a bien réagi à la suppression du 2e serveur `whoami` et n'utilise que le premier.
 
 ## Management UI
 
